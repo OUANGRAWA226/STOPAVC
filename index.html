@@ -1,0 +1,1475 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stroke Risk Calculator — AVC Risk</title>
+<meta name="description" content="Évaluez votre risque d'AVC avec le score CHA₂DS₂-VASc. Stroke risk assessment tool.">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+/* ═══════════════════════════════════════════
+   TOKENS
+═══════════════════════════════════════════ */
+:root {
+  --bg:          #f0ebe4;
+  --bg2:         #e8e1d9;
+  --surface:     #faf8f5;
+  --surface2:    #f2ede7;
+  --ink:         #1c1714;
+  --ink2:        #5a524c;
+  --ink3:        #9b918a;
+  --border:      #ddd7cf;
+  --border2:     #cac3b9;
+  --red:         #b83232;
+  --red-soft:    #f7e8e8;
+  --amber:       #b86a00;
+  --amber-soft:  #fef3e0;
+  --green:       #1f7a50;
+  --green-soft:  #e6f4ed;
+  --blue:        #1a5fa8;
+  --blue-soft:   #e6f0fb;
+  --shadow:      0 2px 16px rgba(28,23,20,.07);
+  --shadow-lg:   0 12px 48px rgba(28,23,20,.13);
+  --r:           14px;
+  --r-sm:        9px;
+  --trans:       0.2s ease;
+}
+[data-theme="dark"] {
+  --bg:          #131110;
+  --bg2:         #1c1917;
+  --surface:     #221f1c;
+  --surface2:    #2a2622;
+  --ink:         #f0ebe4;
+  --ink2:        #b5ada5;
+  --ink3:        #706660;
+  --border:      #353028;
+  --border2:     #453e35;
+  --red-soft:    #3a1a1a;
+  --amber-soft:  #3a2800;
+  --green-soft:  #0e2e1e;
+  --blue-soft:   #0e1e38;
+  --shadow:      0 2px 16px rgba(0,0,0,.3);
+  --shadow-lg:   0 12px 48px rgba(0,0,0,.4);
+}
+
+/* RTL support */
+[dir="rtl"] { font-family: 'Outfit', 'Segoe UI', Tahoma, sans-serif; }
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Outfit', sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  min-height: 100vh;
+  transition: background var(--trans), color var(--trans);
+}
+
+/* ═══════════════════════════════════════════
+   TOPBAR
+═══════════════════════════════════════════ */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  height: 60px;
+  gap: 16px;
+}
+
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-icon {
+  width: 36px; height: 36px;
+  background: var(--ink);
+  border-radius: 10px;
+  display: grid; place-items: center;
+  flex-shrink: 0;
+  transition: background var(--trans);
+}
+
+.brand-name {
+  font-family: 'Playfair Display', serif;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+
+.topbar-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Language selector */
+.lang-select {
+  height: 34px;
+  padding: 0 10px;
+  border: 1.5px solid var(--border2);
+  border-radius: var(--r-sm);
+  background: var(--surface2);
+  color: var(--ink);
+  font-family: 'Outfit', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  transition: border-color var(--trans);
+}
+.lang-select:focus { border-color: var(--ink); }
+
+/* Dark mode toggle */
+.theme-btn {
+  width: 34px; height: 34px;
+  border-radius: var(--r-sm);
+  border: 1.5px solid var(--border2);
+  background: var(--surface2);
+  color: var(--ink);
+  cursor: pointer;
+  display: grid; place-items: center;
+  font-size: 16px;
+  transition: background var(--trans), border-color var(--trans);
+}
+.theme-btn:hover { border-color: var(--ink); }
+
+/* ═══════════════════════════════════════════
+   HERO
+═══════════════════════════════════════════ */
+.hero {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 36px 24px 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.hero h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(26px, 5vw, 40px);
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: -0.8px;
+}
+
+.hero h1 em {
+  font-style: italic;
+  color: var(--red);
+}
+
+.hero-sub {
+  font-size: 14px;
+  color: var(--ink3);
+  margin-top: 6px;
+  font-weight: 400;
+}
+
+.badge-edu {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--amber);
+  background: var(--amber-soft);
+  border: 1px solid #e0b060;
+  border-radius: 100px;
+  padding: 5px 14px;
+}
+
+/* ═══════════════════════════════════════════
+   MAIN LAYOUT
+═══════════════════════════════════════════ */
+.main {
+  max-width: 860px;
+  margin: 24px auto 80px;
+  padding: 0 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ═══════════════════════════════════════════
+   CARDS
+═══════════════════════════════════════════ */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  transition: background var(--trans), border-color var(--trans);
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--border);
+}
+
+.ch-icon {
+  width: 28px; height: 28px;
+  border-radius: 7px;
+  display: grid; place-items: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.ci-red    { background: var(--red-soft); }
+.ci-amber  { background: var(--amber-soft); }
+.ci-green  { background: var(--green-soft); }
+.ci-blue   { background: var(--blue-soft); }
+
+.card-title {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.card-body { padding: 22px; }
+
+/* ═══════════════════════════════════════════
+   FORM ELEMENTS
+═══════════════════════════════════════════ */
+.fg { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 18px; }
+
+.field { display: flex; flex-direction: column; gap: 6px; }
+
+label.fl {
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--ink2);
+}
+
+label.fl span { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--ink3); }
+
+input[type="number"],
+select.styled {
+  height: 40px;
+  border: 1.5px solid var(--border2);
+  border-radius: var(--r-sm);
+  background: var(--surface2);
+  padding: 0 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  color: var(--ink);
+  outline: none;
+  transition: border-color var(--trans), box-shadow var(--trans), background var(--trans);
+  width: 100%;
+  appearance: none;
+}
+input[type="number"]:focus,
+select.styled:focus {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px rgba(28,23,20,.08);
+  background: var(--surface);
+}
+[data-theme="dark"] input[type="number"]:focus,
+[data-theme="dark"] select.styled:focus {
+  box-shadow: 0 0 0 3px rgba(240,235,228,.08);
+}
+
+.sw { position: relative; }
+.sw::after {
+  content: '▾';
+  position: absolute;
+  right: 11px; top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  color: var(--ink3);
+  pointer-events: none;
+}
+.sw select.styled { padding-right: 26px; cursor: pointer; }
+
+/* Toggle */
+.tog { display: flex; border-radius: var(--r-sm); overflow: hidden; border: 1.5px solid var(--border2); }
+.tog input[type="radio"] { display: none; }
+.tog label {
+  flex: 1;
+  height: 40px;
+  display: grid; place-items: center;
+  font-size: 13px; font-weight: 500;
+  text-transform: none; letter-spacing: 0;
+  color: var(--ink2);
+  background: var(--surface2);
+  cursor: pointer;
+  transition: background var(--trans), color var(--trans);
+  border: none;
+}
+.tog label:not(:last-child) { border-right: 1.5px solid var(--border2); }
+.tog input[type="radio"]:checked + label { background: var(--ink); color: var(--surface); }
+
+/* ═══════════════════════════════════════════
+   CTA ROW
+═══════════════════════════════════════════ */
+.cta-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 0 22px 22px;
+}
+
+.btn {
+  height: 44px;
+  padding: 0 24px;
+  border-radius: var(--r-sm);
+  font-family: 'Outfit', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity var(--trans), transform .1s;
+  border: none;
+  letter-spacing: 0.2px;
+}
+.btn:active { transform: scale(.97); }
+
+.btn-primary { background: var(--ink); color: var(--surface); }
+.btn-primary:hover { opacity: .85; }
+
+.btn-outline {
+  background: transparent;
+  color: var(--ink2);
+  border: 1.5px solid var(--border2);
+}
+.btn-outline:hover { border-color: var(--ink); color: var(--ink); }
+
+.btn-pdf {
+  background: var(--red);
+  color: #fff;
+  margin-left: auto;
+}
+.btn-pdf:hover { opacity: .88; }
+
+/* ═══════════════════════════════════════════
+   RESULT PANEL
+═══════════════════════════════════════════ */
+#result-panel { display: none; }
+#result-panel.visible {
+  display: block;
+  animation: slideUp .35s ease;
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Hero risk display */
+.risk-hero {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 28px;
+  align-items: center;
+  padding: 24px 22px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 540px) {
+  .risk-hero { grid-template-columns: 1fr; }
+}
+
+/* Donut gauge */
+.gauge-wrap {
+  position: relative;
+  width: 160px; height: 160px;
+  flex-shrink: 0;
+}
+.gauge-wrap canvas { position: absolute; top: 0; left: 0; }
+.gauge-center {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+}
+.gauge-center strong {
+  display: block;
+  font-family: 'Playfair Display', serif;
+  font-size: 42px;
+  line-height: 1;
+  letter-spacing: -2px;
+}
+.gauge-center span {
+  font-size: 11px;
+  color: var(--ink3);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Risk info */
+.risk-meta { }
+.risk-label-big {
+  font-family: 'Playfair Display', serif;
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.2;
+  margin-bottom: 8px;
+}
+.risk-desc-text {
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--ink2);
+  margin-bottom: 14px;
+}
+.annual-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.annual-pill strong {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 15px;
+}
+
+/* ═══════════════════════════════════════════
+   CHARTS SECTION
+═══════════════════════════════════════════ */
+.charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  padding: 0 22px 22px;
+}
+@media (max-width: 600px) {
+  .charts-grid { grid-template-columns: 1fr; }
+}
+
+.chart-box {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 16px;
+}
+
+.chart-box h4 {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--ink3);
+  margin-bottom: 12px;
+}
+
+.chart-box canvas { max-height: 200px; }
+
+/* ═══════════════════════════════════════════
+   BREAKDOWN GRID
+═══════════════════════════════════════════ */
+.section-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--ink3);
+  padding: 0 22px 10px;
+}
+
+.bk-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+  padding: 0 22px 20px;
+}
+
+.bk-item {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 11px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  transition: background var(--trans);
+}
+
+.bk-name { font-size: 12px; color: var(--ink2); font-weight: 500; line-height: 1.35; }
+.bk-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 5px;
+  padding: 3px 8px;
+  flex-shrink: 0;
+}
+.v0 { background: var(--green-soft); color: var(--green); }
+.v1 { background: var(--amber-soft); color: var(--amber); }
+.v2 { background: var(--red-soft); color: var(--red); }
+
+/* ═══════════════════════════════════════════
+   RECOMMENDATIONS
+═══════════════════════════════════════════ */
+.reco-list {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 0 22px 22px;
+}
+
+.reco-item {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface2);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink2);
+  animation: fadeSlide .3s ease backwards;
+}
+@keyframes fadeSlide {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.ri-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+/* ═══════════════════════════════════════════
+   COLORS
+═══════════════════════════════════════════ */
+.c-green     { color: var(--green); }
+.c-amber     { color: var(--amber); }
+.c-red       { color: var(--red); }
+.c-darkred   { color: #7b0000; }
+
+/* ═══════════════════════════════════════════
+   FOOTER
+═══════════════════════════════════════════ */
+.footer {
+  max-width: 860px;
+  margin: 0 auto 32px;
+  padding: 0 24px;
+  font-size: 11.5px;
+  color: var(--ink3);
+  line-height: 1.7;
+  text-align: center;
+}
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════════ */
+@media (max-width: 500px) {
+  .card-body { padding: 14px; }
+  .fg { grid-template-columns: 1fr; }
+  .topbar { padding: 0 14px; }
+  .hero { padding: 20px 14px 0; }
+  .main { padding: 0 14px; }
+}
+
+/* ═══════════════════════════════════════════
+   PRINT / PDF HIDDEN ELEMENTS
+═══════════════════════════════════════════ */
+@media print {
+  .topbar, .cta-row, .btn-pdf { display: none !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- ════════════ TOPBAR ════════════ -->
+<nav class="topbar">
+  <div class="topbar-brand">
+    <div class="brand-icon">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+        <path d="M12 3C8.13 3 5 6.13 5 10c0 3.09 1.94 5.75 4.7 6.86L12 21l2.3-4.14C17.06 15.75 19 13.09 19 10c0-3.87-3.13-7-7-7z" fill="currentColor" fill-opacity=".9"/>
+        <path d="M9 10h2V8h2v2h2v2h-2v2h-2v-2H9v-2z" fill="var(--surface)"/>
+      </svg>
+    </div>
+    <span class="brand-name" data-i18n="brand">AVC Risk</span>
+  </div>
+  <div class="topbar-controls">
+    <select class="lang-select" id="langSel" onchange="setLang(this.value)">
+      <option value="fr">🇫🇷 Français</option>
+      <option value="en">🇬🇧 English</option>
+      <option value="es">🇪🇸 Español</option>
+      <option value="ar">🇸🇦 العربية</option>
+    </select>
+    <button class="theme-btn" onclick="toggleTheme()" title="Toggle theme">
+      <span id="theme-icon">🌙</span>
+    </button>
+  </div>
+</nav>
+
+<!-- ════════════ HERO ════════════ -->
+<div class="hero">
+  <div>
+    <h1 data-i18n="heroTitle">Évaluation du <em>Risque d'AVC</em></h1>
+    <p class="hero-sub" data-i18n="heroSub">Score CHA₂DS₂-VASc · Analyse complète des facteurs de risque</p>
+  </div>
+  <span class="badge-edu" data-i18n="badge">⚠ Usage éducatif</span>
+</div>
+
+<!-- ════════════ FORM ════════════ -->
+<div class="main">
+
+  <!-- Section 1: Demographics -->
+  <div class="card">
+    <div class="card-head">
+      <div class="ch-icon ci-blue">👤</div>
+      <span class="card-title" data-i18n="s1">Données démographiques</span>
+    </div>
+    <div class="card-body">
+      <div class="fg">
+        <div class="field">
+          <label class="fl" data-i18n="lAge">Âge <span data-i18n="uYears">(années)</span></label>
+          <input type="number" id="age" min="18" max="110" placeholder="65">
+        </div>
+        <div class="field">
+          <label class="fl" data-i18n="lSex">Sexe biologique</label>
+          <div class="tog">
+            <input type="radio" id="sm" name="sex" value="M"><label for="sm" data-i18n="male">Homme</label>
+            <input type="radio" id="sf" name="sex" value="F"><label for="sf" data-i18n="female">Femme</label>
+          </div>
+        </div>
+        <div class="field">
+          <label class="fl" data-i18n="lBmi">IMC <span>(kg/m²)</span></label>
+          <input type="number" id="bmi" min="10" max="70" step="0.1" placeholder="27.5">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 2: Cardio -->
+  <div class="card">
+    <div class="card-head">
+      <div class="ch-icon ci-red">❤️</div>
+      <span class="card-title" data-i18n="s2">Paramètres cardiovasculaires</span>
+    </div>
+    <div class="card-body">
+      <div class="fg">
+        <div class="field">
+          <label class="fl" data-i18n="lSbp">PAS <span>(mmHg)</span></label>
+          <input type="number" id="sbp" min="60" max="280" placeholder="130">
+        </div>
+        <div class="field">
+          <label class="fl" data-i18n="lDbp">PAD <span>(mmHg)</span></label>
+          <input type="number" id="dbp" min="40" max="160" placeholder="85">
+        </div>
+        <div class="field">
+          <label class="fl" data-i18n="lHr">Fréquence cardiaque <span>(bpm)</span></label>
+          <input type="number" id="hr" min="30" max="250" placeholder="72">
+        </div>
+        <div class="field">
+          <label class="fl" data-i18n="lAf">Fibrillation auriculaire</label>
+          <div class="tog">
+            <input type="radio" id="afn" name="af" value="0"><label for="afn" data-i18n="no">Non</label>
+            <input type="radio" id="afy" name="af" value="1"><label for="afy" data-i18n="yes">Oui</label>
+          </div>
+        </div>
+        <div class="field">
+          <label class="fl" data-i18n="lChf">Insuff. cardiaque</label>
+          <div class="tog">
+            <input type="radio" id="chfn" name="chf" value="0"><label for="chfn" data-i18n="no">Non</label>
+            <input type="radio" id="chfy" name="chf" value="1"><label for="chfy" data-i18n="yes">Oui</label>
+          </div>
+        </div>
+        <div class="field">
+          <label class="fl" data-i18n="lVd">Cardiopathie vasculaire</label>
+          <div class="tog">
+            <input type="radio" id="vdn" name="vd" value="0"><label for="vdn" data-i18n="no">Non</label>
+            <input type="radio" id="vdy" name="vd" value="1"><label for="vdy" data-i18n="yes">Oui</label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 3: Antecedents -->
+  <div class="card">
+    <div class="card-head">
+      <div class="ch-icon ci-amber">📋</div>
+      <span class="card-title" data-i18n="s3">Antécédents médicaux</span>
+    </div>
+    <div class="card-body">
+      <div class="fg">
+        <div class="field">
+          <label class="fl" data-i18n="lDm">Diabète</label>
+          <div class="tog">
+            <input type="radio" id="dmn" name="dm" value="0"><label for="dmn" data-i18n="no">Non</label>
+            <input type="radio" id="dmy" name="dm" value="1"><label for="dmy" data-i18n="yes">Oui</label>
+          </div>
+        </div>
+        <div class="field">
+          <label class="fl" data-i18n="lStroke">AVC / AIT antérieur</label>
+          <div class="tog">
+            <input type="radio" id="strn" name="stroke" value="0"><label for="strn" data-i18n="no">Non</label>
+            <input type="radio" id="stry" name="stroke" value="1"><label for="stry" data-i18n="yes">Oui</label>
+          </div>
+        </div>
+        <div class="field">
+          <label class="fl" data-i18n="lChol">Cholestérol total <span>(mmol/L)</span></label>
+          <input type="number" id="cholVal" min="1" max="15" step="0.1" placeholder="5.2">
+        </div>
+        <div class="field">
+          <label class="fl" data-i18n="lGluc">Glycémie à jeun <span>(mmol/L)</span></label>
+          <input type="number" id="glucose" min="1" max="40" step="0.1" placeholder="5.5">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 4: Lifestyle -->
+  <div class="card">
+    <div class="card-head">
+      <div class="ch-icon ci-green">🌿</div>
+      <span class="card-title" data-i18n="s4">Mode de vie</span>
+    </div>
+    <div class="card-body">
+      <div class="fg">
+        <div class="field">
+          <label class="fl" data-i18n="lSmk">Tabagisme</label>
+          <div class="sw">
+            <select class="styled" id="smoking">
+              <option value="0" data-i18n="smk0">Non-fumeur</option>
+              <option value="1" data-i18n="smk1">Ex-fumeur</option>
+              <option value="2" data-i18n="smk2">Fumeur actuel</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label class="fl" data-i18n="lAlc">Alcool</label>
+          <div class="sw">
+            <select class="styled" id="alcohol">
+              <option value="0" data-i18n="alc0">Aucune / modérée</option>
+              <option value="1" data-i18n="alc1">Élevée (≥14 verres/sem.)</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label class="fl" data-i18n="lAct">Activité physique</label>
+          <div class="sw">
+            <select class="styled" id="activity">
+              <option value="0" data-i18n="act0">Sédentaire</option>
+              <option value="1" data-i18n="act1">Légère (&lt;150 min/sem.)</option>
+              <option value="2" data-i18n="act2">Modérée (150-300 min)</option>
+              <option value="3" data-i18n="act3">Intense (&gt;300 min)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="cta-row">
+      <button class="btn btn-primary" onclick="calculate()" data-i18n="btnCalc">Calculer le risque</button>
+      <button class="btn btn-outline" onclick="resetForm()" data-i18n="btnReset">Réinitialiser</button>
+    </div>
+  </div>
+
+  <!-- ════════════ RESULT PANEL ════════════ -->
+  <div class="card" id="result-panel">
+
+    <div class="card-head">
+      <div class="ch-icon ci-red">📊</div>
+      <span class="card-title" data-i18n="resultTitle">Résultat de l'évaluation</span>
+      <button class="btn btn-pdf" style="margin-left:auto;height:32px;padding:0 14px;font-size:12px;" onclick="exportPDF()" data-i18n="btnPdf">⬇ Exporter PDF</button>
+    </div>
+
+    <!-- Risk hero -->
+    <div class="risk-hero" id="risk-hero">
+      <div class="gauge-wrap">
+        <canvas id="donutChart" width="160" height="160"></canvas>
+        <div class="gauge-center">
+          <strong id="gauge-score">—</strong>
+          <span>/ 9 pts</span>
+        </div>
+      </div>
+      <div class="risk-meta">
+        <div class="risk-label-big" id="risk-label">—</div>
+        <div class="risk-desc-text" id="risk-desc">—</div>
+        <div class="annual-pill" id="annual-pill">
+          <span data-i18n="annualRisk">Risque annuel estimé :</span>
+          <strong id="annual-val">—</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="section-label" data-i18n="vizTitle">Visualisation des indicateurs</div>
+    <div class="charts-grid">
+      <div class="chart-box">
+        <h4 data-i18n="chartChadTitle">Score CHA₂DS₂-VASc — comparaison</h4>
+        <canvas id="barChart"></canvas>
+      </div>
+      <div class="chart-box">
+        <h4 data-i18n="chartRadarTitle">Profil de risque global</h4>
+        <canvas id="radarChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Breakdown -->
+    <div class="section-label" data-i18n="breakTitle">Détail CHA₂DS₂-VASc</div>
+    <div class="bk-grid" id="bk-grid"></div>
+
+    <div class="section-label" data-i18n="extraTitle">Indicateurs supplémentaires</div>
+    <div class="bk-grid" id="extra-grid"></div>
+
+    <!-- Recommendations -->
+    <div class="section-label" data-i18n="recoTitle">Recommandations</div>
+    <div class="reco-list" id="reco-list"></div>
+
+  </div>
+</div>
+
+<div class="footer" data-i18n="footer">
+  Cet outil est à visée éducative uniquement et ne remplace pas un avis médical professionnel.<br>
+  Le score CHA₂DS₂-VASc est validé pour les patients en fibrillation auriculaire (Lip GYH et al., 2010).
+</div>
+
+<!-- ════════════ SCRIPTS ════════════ -->
+<script>
+/* ──────────────────────────────────────
+   i18n
+────────────────────────────────────── */
+const LANGS = {
+  fr: {
+    brand:'AVC Risk', heroTitle:'Évaluation du <em>Risque d\'AVC</em>',
+    heroSub:'Score CHA₂DS₂-VASc · Analyse complète des facteurs de risque',
+    badge:'⚠ Usage éducatif',
+    s1:'Données démographiques', s2:'Paramètres cardiovasculaires',
+    s3:'Antécédents médicaux', s4:'Mode de vie',
+    lAge:'Âge', uYears:'(années)', lSex:'Sexe biologique',
+    male:'Homme', female:'Femme', lBmi:'IMC',
+    lSbp:'PAS', lDbp:'PAD', lHr:'Fréquence cardiaque',
+    lAf:'Fibrillation auriculaire', lChf:'Insuff. cardiaque',
+    lVd:'Cardiopathie vasculaire', lDm:'Diabète',
+    lStroke:'AVC / AIT antérieur', lChol:'Cholestérol total',
+    lGluc:'Glycémie à jeun', lSmk:'Tabagisme', lAlc:'Alcool', lAct:'Activité physique',
+    smk0:'Non-fumeur', smk1:'Ex-fumeur', smk2:'Fumeur actuel',
+    alc0:'Aucune / modérée', alc1:'Élevée (≥14 verres/sem.)',
+    act0:'Sédentaire', act1:'Légère (<150 min/sem.)', act2:'Modérée (150-300)', act3:'Intense (>300)',
+    no:'Non', yes:'Oui',
+    btnCalc:'Calculer le risque', btnReset:'Réinitialiser', btnPdf:'⬇ Exporter PDF',
+    resultTitle:'Résultat de l\'évaluation',
+    annualRisk:'Risque annuel estimé :',
+    vizTitle:'Visualisation des indicateurs',
+    chartChadTitle:'Score CHA₂DS₂-VASc — comparaison',
+    chartRadarTitle:'Profil de risque global',
+    breakTitle:'Détail CHA₂DS₂-VASc',
+    extraTitle:'Indicateurs supplémentaires',
+    recoTitle:'Recommandations',
+    footer:'Cet outil est à visée éducative uniquement et ne remplace pas un avis médical professionnel.<br>Le score CHA₂DS₂-VASc est validé pour les patients en fibrillation auriculaire (Lip GYH et al., 2010).',
+    risks:['Faible','Faible–Modéré','Modéré','Élevé','Très élevé'],
+    riskDescs:[
+      'Score de 0. Pas de traitement anticoagulant recommandé en général.',
+      'La décision d\'anticoagulation doit être individualisée selon les recommandations cliniques.',
+      'Anticoagulation orale recommandée chez la plupart des patients en FA.',
+      'Anticoagulation fortement recommandée. Optimisation intensive des facteurs de risque.',
+      'Risque annuel très significatif. Évaluation cardiologique urgente recommandée.'
+    ],
+    chartLabels:['Score actuel','Risque faible','Risque élevé'],
+    radarLabels:['Pression art.','Âge','IMC','Tabac','Activité','Glycémie'],
+    recos:{
+      hbp:'Traitement antihypertenseur à discuter avec votre médecin (PAS ≥ 140 mmHg).',
+      smkCurr:'Arrêt du tabac — réduit significativement le risque d\'AVC.',
+      smkEx:'Maintien de l\'arrêt du tabac — le risque diminue progressivement.',
+      inact:'Activité physique recommandée : ≥ 150 min/semaine d\'intensité modérée.',
+      bmi:'Réduction du poids corporel — diminue la pression artérielle et le risque diabétique.',
+      dm:'Contrôle glycémique strict (HbA1c < 7%) pour réduire les complications vasculaires.',
+      alc:'Réduction de la consommation d\'alcool — baisse la pression artérielle.',
+      af:'Fibrillation auriculaire : évaluation cardiologique et anticoagulation selon le score.',
+      chol:'Cholestérol élevé : régime adapté et évaluation d\'un traitement hypolipémiant.',
+      ok:'Profil de risque favorable ! Maintenez vos habitudes saines et effectuez un suivi régulier.'
+    }
+  },
+  en: {
+    brand:'Stroke Risk', heroTitle:'<em>Stroke Risk</em> Assessment',
+    heroSub:'CHA₂DS₂-VASc Score · Complete risk factor analysis',
+    badge:'⚠ Educational use only',
+    s1:'Demographic Data', s2:'Cardiovascular Parameters',
+    s3:'Medical History', s4:'Lifestyle',
+    lAge:'Age', uYears:'(years)', lSex:'Biological sex',
+    male:'Male', female:'Female', lBmi:'BMI',
+    lSbp:'SBP', lDbp:'DBP', lHr:'Heart rate',
+    lAf:'Atrial fibrillation', lChf:'Heart failure',
+    lVd:'Vascular disease', lDm:'Diabetes',
+    lStroke:'Prior stroke / TIA', lChol:'Total cholesterol',
+    lGluc:'Fasting glucose', lSmk:'Smoking', lAlc:'Alcohol', lAct:'Physical activity',
+    smk0:'Non-smoker', smk1:'Ex-smoker', smk2:'Current smoker',
+    alc0:'None / moderate', alc1:'Heavy (≥14 drinks/wk)',
+    act0:'Sedentary', act1:'Light (<150 min/wk)', act2:'Moderate (150-300)', act3:'Intense (>300)',
+    no:'No', yes:'Yes',
+    btnCalc:'Calculate risk', btnReset:'Reset', btnPdf:'⬇ Export PDF',
+    resultTitle:'Assessment result',
+    annualRisk:'Estimated annual risk:',
+    vizTitle:'Risk indicator visualisation',
+    chartChadTitle:'CHA₂DS₂-VASc score comparison',
+    chartRadarTitle:'Global risk profile',
+    breakTitle:'CHA₂DS₂-VASc detail',
+    extraTitle:'Additional indicators',
+    recoTitle:'Recommendations',
+    footer:'This tool is for educational purposes only and does not replace professional medical advice.<br>The CHA₂DS₂-VASc score is validated for atrial fibrillation patients (Lip GYH et al., 2010).',
+    risks:['Low','Low–Moderate','Moderate','High','Very High'],
+    riskDescs:[
+      'Score 0. Anticoagulation not generally recommended.',
+      'Anticoagulation decision should be individualised per clinical guidelines.',
+      'Oral anticoagulation recommended for most AF patients.',
+      'Anticoagulation strongly recommended. Intensive risk factor optimisation.',
+      'Very significant annual stroke risk. Urgent cardiology evaluation recommended.'
+    ],
+    chartLabels:['Current score','Low risk','High risk'],
+    radarLabels:['Blood pressure','Age','BMI','Smoking','Activity','Glucose'],
+    recos:{
+      hbp:'Consider antihypertensive treatment (SBP ≥ 140 mmHg detected).',
+      smkCurr:'Smoking cessation — significantly reduces stroke and cardiovascular risk.',
+      smkEx:'Maintain smoking abstinence — risk decreases progressively.',
+      inact:'Physical activity recommended: ≥ 150 min/week of moderate intensity.',
+      bmi:'Weight reduction lowers blood pressure and diabetes risk.',
+      dm:'Strict glycemic control (HbA1c < 7%) to reduce vascular complications.',
+      alc:'Reduce alcohol consumption — lowers blood pressure.',
+      af:'Atrial fibrillation: cardiology evaluation and anticoagulation per score.',
+      chol:'Elevated cholesterol: dietary changes and evaluation of lipid-lowering therapy.',
+      ok:'Favourable risk profile! Maintain healthy habits and schedule regular check-ups.'
+    }
+  },
+  es: {
+    brand:'Riesgo ACV', heroTitle:'Evaluación del <em>Riesgo de ACV</em>',
+    heroSub:'Puntuación CHA₂DS₂-VASc · Análisis completo de factores de riesgo',
+    badge:'⚠ Uso educativo',
+    s1:'Datos demográficos', s2:'Parámetros cardiovasculares',
+    s3:'Antecedentes médicos', s4:'Estilo de vida',
+    lAge:'Edad', uYears:'(años)', lSex:'Sexo biológico',
+    male:'Hombre', female:'Mujer', lBmi:'IMC',
+    lSbp:'PAS', lDbp:'PAD', lHr:'Frecuencia cardíaca',
+    lAf:'Fibrilación auricular', lChf:'Insuf. cardíaca',
+    lVd:'Cardiopatía vascular', lDm:'Diabetes',
+    lStroke:'ACV / AIT previo', lChol:'Colesterol total',
+    lGluc:'Glucemia en ayunas', lSmk:'Tabaquismo', lAlc:'Alcohol', lAct:'Actividad física',
+    smk0:'No fumador', smk1:'Ex fumador', smk2:'Fumador activo',
+    alc0:'Ninguna / moderada', alc1:'Elevada (≥14 bebidas/sem.)',
+    act0:'Sedentario', act1:'Ligera (<150 min/sem.)', act2:'Moderada (150-300)', act3:'Intensa (>300)',
+    no:'No', yes:'Sí',
+    btnCalc:'Calcular riesgo', btnReset:'Reiniciar', btnPdf:'⬇ Exportar PDF',
+    resultTitle:'Resultado de la evaluación',
+    annualRisk:'Riesgo anual estimado:',
+    vizTitle:'Visualización de indicadores',
+    chartChadTitle:'Puntuación CHA₂DS₂-VASc',
+    chartRadarTitle:'Perfil de riesgo global',
+    breakTitle:'Detalle CHA₂DS₂-VASc',
+    extraTitle:'Indicadores adicionales',
+    recoTitle:'Recomendaciones',
+    footer:'Esta herramienta es solo para uso educativo y no reemplaza el consejo médico profesional.',
+    risks:['Bajo','Bajo–Moderado','Moderado','Alto','Muy alto'],
+    riskDescs:[
+      'Puntuación 0. Anticoagulación generalmente no recomendada.',
+      'La decisión de anticoagulación debe individualizarse según guías clínicas.',
+      'Anticoagulación oral recomendada para la mayoría de pacientes con FA.',
+      'Anticoagulación fuertemente recomendada. Optimización intensiva de factores de riesgo.',
+      'Riesgo anual muy significativo. Evaluación cardiológica urgente recomendada.'
+    ],
+    chartLabels:['Puntuación actual','Riesgo bajo','Riesgo alto'],
+    radarLabels:['Presión art.','Edad','IMC','Tabaco','Actividad','Glucemia'],
+    recos:{
+      hbp:'Considere tratamiento antihipertensivo (PAS ≥ 140 mmHg detectada).',
+      smkCurr:'Dejar de fumar — reduce significativamente el riesgo de ACV.',
+      smkEx:'Mantener el cese del tabaquismo — el riesgo disminuye progresivamente.',
+      inact:'Actividad física recomendada: ≥ 150 min/semana de intensidad moderada.',
+      bmi:'La reducción de peso disminuye la presión arterial y el riesgo diabético.',
+      dm:'Control glucémico estricto (HbA1c < 7%) para reducir complicaciones vasculares.',
+      alc:'Reducir el consumo de alcohol — baja la presión arterial.',
+      af:'Fibrilación auricular: evaluación cardiológica y anticoagulación según puntuación.',
+      chol:'Colesterol elevado: dieta adecuada y evaluación de tratamiento hipolipemiante.',
+      ok:'¡Perfil de riesgo favorable! Mantenga hábitos saludables y controles regulares.'
+    }
+  },
+  ar: {
+    brand:'خطر السكتة', heroTitle:'تقييم <em>خطر السكتة الدماغية</em>',
+    heroSub:'نقاط CHA₂DS₂-VASc · تحليل شامل لعوامل الخطر',
+    badge:'⚠ للأغراض التعليمية فقط',
+    s1:'البيانات الديموغرافية', s2:'المعاملات القلبية الوعائية',
+    s3:'التاريخ الطبي', s4:'نمط الحياة',
+    lAge:'العمر', uYears:'(سنة)', lSex:'الجنس البيولوجي',
+    male:'ذكر', female:'أنثى', lBmi:'مؤشر كتلة الجسم',
+    lSbp:'ضغط الدم الانقباضي', lDbp:'ضغط الدم الانبساطي', lHr:'معدل ضربات القلب',
+    lAf:'الرجفان الأذيني', lChf:'فشل القلب',
+    lVd:'أمراض الأوعية الدموية', lDm:'السكري',
+    lStroke:'سكتة دماغية / نوبة نقص تروية سابقة', lChol:'الكوليسترول الكلي',
+    lGluc:'سكر الدم الصيامي', lSmk:'التدخين', lAlc:'الكحول', lAct:'النشاط البدني',
+    smk0:'غير مدخن', smk1:'مدخن سابق', smk2:'مدخن حالي',
+    alc0:'لا شيء / معتدل', alc1:'مرتفع (≥14 مشروب/أسبوع)',
+    act0:'خامل', act1:'خفيف (<150 دقيقة)', act2:'معتدل (150-300)', act3:'مكثف (>300)',
+    no:'لا', yes:'نعم',
+    btnCalc:'احسب الخطر', btnReset:'إعادة تعيين', btnPdf:'⬇ تصدير PDF',
+    resultTitle:'نتيجة التقييم',
+    annualRisk:'الخطر السنوي المقدر:',
+    vizTitle:'تصور المؤشرات',
+    chartChadTitle:'مقارنة نقاط CHA₂DS₂-VASc',
+    chartRadarTitle:'ملف الخطر الشامل',
+    breakTitle:'تفاصيل CHA₂DS₂-VASc',
+    extraTitle:'مؤشرات إضافية',
+    recoTitle:'التوصيات',
+    footer:'هذه الأداة لأغراض تعليمية فقط ولا تحل محل المشورة الطبية المتخصصة.',
+    risks:['منخفض','منخفض–متوسط','متوسط','مرتفع','مرتفع جداً'],
+    riskDescs:[
+      'النقاط 0. لا يُنصح بمضادات التخثر عموماً.',
+      'يجب تفريد قرار التخثر وفق الإرشادات السريرية.',
+      'يُنصح بمضادات التخثر الفموية لمعظم مرضى الرجفان الأذيني.',
+      'يُنصح بشدة بمضادات التخثر. تحسين مكثف لعوامل الخطر.',
+      'خطر سنوي مرتفع جداً. يُنصح بتقييم قلبي عاجل.'
+    ],
+    chartLabels:['النقاط الحالية','خطر منخفض','خطر مرتفع'],
+    radarLabels:['ضغط الدم','العمر','كتلة الجسم','التدخين','النشاط','السكر'],
+    recos:{
+      hbp:'يُنصح بعلاج ارتفاع ضغط الدم (انقباضي ≥ 140 ملم زئبق).',
+      smkCurr:'الإقلاع عن التدخين — يقلل بشكل ملحوظ من خطر السكتة الدماغية.',
+      smkEx:'الحفاظ على الإقلاع عن التدخين — ينخفض الخطر تدريجياً.',
+      inact:'يُنصح بالنشاط البدني: ≥ 150 دقيقة في الأسبوع بكثافة معتدلة.',
+      bmi:'تقليل الوزن يخفض ضغط الدم ومخاطر السكري.',
+      dm:'التحكم الصارم في سكر الدم (HbA1c < 7%) للحد من المضاعفات الوعائية.',
+      alc:'تقليل تناول الكحول — يخفض ضغط الدم.',
+      af:'الرجفان الأذيني: تقييم قلبي ومضادات التخثر وفق النقاط.',
+      chol:'كوليسترول مرتفع: نظام غذائي مناسب وتقييم علاج خفض الدهون.',
+      ok:'ملف خطر ملائم! حافظ على عاداتك الصحية وأجرِ فحوصات منتظمة.'
+    }
+  }
+};
+
+let currentLang = 'fr';
+let donutInstance = null, barInstance = null, radarInstance = null;
+
+function t(key) { return LANGS[currentLang][key] || key; }
+
+function setLang(lang) {
+  currentLang = lang;
+  const isRTL = (lang === 'ar');
+  document.documentElement.lang = lang;
+  document.documentElement.dir = isRTL ? 'rtl' : 'ltr';
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const k = el.dataset.i18n;
+    if (LANGS[lang][k] !== undefined) {
+      el.innerHTML = LANGS[lang][k];
+    }
+  });
+  // Update select options
+  [['smk0','smk1','smk2'],['alc0','alc1'],['act0','act1','act2','act3']].forEach(group => {
+    group.forEach(k => {
+      const opt = document.querySelector(`option[data-i18n="${k}"]`);
+      if (opt && LANGS[lang][k]) opt.textContent = LANGS[lang][k];
+    });
+  });
+}
+
+/* ──────────────────────────────────────
+   THEME
+────────────────────────────────────── */
+function toggleTheme() {
+  const curr = document.documentElement.getAttribute('data-theme');
+  const next  = curr === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  document.getElementById('theme-icon').textContent = next === 'dark' ? '☀️' : '🌙';
+  if (donutInstance) rebuildCharts(window._lastResult);
+}
+
+function isDark() { return document.documentElement.getAttribute('data-theme') === 'dark'; }
+
+/* ──────────────────────────────────────
+   HELPERS
+────────────────────────────────────── */
+function radio(name) {
+  const el = document.querySelector(`input[name="${name}"]:checked`);
+  return el ? el.value : null;
+}
+
+const ANNUAL_RISK = [0, 1.3, 2.2, 3.2, 4.0, 6.7, 9.8, 9.6, 6.7, 15.2];
+
+/* ──────────────────────────────────────
+   CALCULATE
+────────────────────────────────────── */
+function calculate() {
+  const age      = parseFloat(document.getElementById('age').value);
+  const sex      = radio('sex');
+  const af       = radio('af');
+  const chf      = radio('chf');
+  const vd       = radio('vd');
+  const dm       = radio('dm');
+  const stroke   = radio('stroke');
+  const smoking  = parseInt(document.getElementById('smoking').value);
+  const alcohol  = parseInt(document.getElementById('alcohol').value);
+  const activity = parseInt(document.getElementById('activity').value);
+  const sbp      = parseFloat(document.getElementById('sbp').value);
+  const dbp      = parseFloat(document.getElementById('dbp').value);
+  const bmi      = parseFloat(document.getElementById('bmi').value);
+  const cholVal  = parseFloat(document.getElementById('cholVal').value);
+  const glucose  = parseFloat(document.getElementById('glucose').value);
+
+  if (isNaN(age) || !sex) {
+    alert(currentLang === 'ar' ? 'يرجى إدخال العمر والجنس على الأقل.' : 'Veuillez renseigner au moins l\'âge et le sexe.');
+    return;
+  }
+
+  // ── CHA2DS2-VASc ──
+  let score = 0;
+  const breakdown = [];
+
+  const cPts = (chf === '1') ? 1 : 0; score += cPts;
+  breakdown.push({ label: 'C — ' + t('lChf'), pts: cPts });
+
+  const hPts = (!isNaN(sbp) && sbp >= 140) ? 1 : 0; score += hPts;
+  breakdown.push({ label: 'H — Hypertension (PAS ≥ 140)', pts: hPts });
+
+  const a2Pts = (!isNaN(age) && age >= 75) ? 2 : 0; score += a2Pts;
+  breakdown.push({ label: 'A₂ — ' + t('lAge') + ' ≥ 75', pts: a2Pts });
+
+  const dPts = (dm === '1') ? 1 : 0; score += dPts;
+  breakdown.push({ label: 'D — ' + t('lDm'), pts: dPts });
+
+  const s2Pts = (stroke === '1') ? 2 : 0; score += s2Pts;
+  breakdown.push({ label: 'S₂ — ' + t('lStroke'), pts: s2Pts });
+
+  const vPts = (vd === '1') ? 1 : 0; score += vPts;
+  breakdown.push({ label: 'V — ' + t('lVd'), pts: vPts });
+
+  const aPts = (!isNaN(age) && age >= 65 && age < 75) ? 1 : 0; score += aPts;
+  breakdown.push({ label: 'A — ' + t('lAge') + ' 65–74', pts: aPts });
+
+  const scPts = (sex === 'F') ? 1 : 0; score += scPts;
+  breakdown.push({ label: 'Sc — ' + t('female'), pts: scPts });
+
+  score = Math.min(score, 9);
+
+  // ── Extra ──
+  const extras = [];
+  if (!isNaN(bmi)) {
+    const bmiR = bmi >= 30 ? 2 : bmi >= 25 ? 1 : 0;
+    const bmiL = bmi < 18.5 ? '↓' : bmi < 25 ? '✓' : bmi < 30 ? '↑' : '↑↑';
+    extras.push({ label: `${t('lBmi')} ${bmi.toFixed(1)} ${bmiL}`, pts: bmiR });
+  }
+  if (!isNaN(sbp) && !isNaN(dbp)) {
+    const bpR = sbp >= 140 || dbp >= 90 ? 2 : sbp >= 130 || dbp >= 80 ? 1 : 0;
+    extras.push({ label: `${t('lSbp')} ${sbp}/${dbp} mmHg`, pts: bpR });
+  }
+  extras.push({ label: `${t('lSmk')} — ${t(['smk0','smk1','smk2'][smoking])}`, pts: smoking });
+  const actR = activity === 0 ? 2 : activity === 1 ? 1 : 0;
+  extras.push({ label: `${t('lAct')} — ${t(['act0','act1','act2','act3'][activity])}`, pts: actR });
+  extras.push({ label: `${t('lAlc')} — ${t(['alc0','alc1'][alcohol])}`, pts: alcohol });
+  if (!isNaN(cholVal)) {
+    const cR = cholVal >= 6.2 ? 2 : cholVal >= 5.2 ? 1 : 0;
+    extras.push({ label: `${t('lChol')} ${cholVal} mmol/L`, pts: cR });
+  }
+  if (!isNaN(glucose)) {
+    const gR = glucose >= 7.0 ? 2 : glucose >= 5.6 ? 1 : 0;
+    extras.push({ label: `${t('lGluc')} ${glucose} mmol/L`, pts: gR });
+  }
+
+  // ── Risk level ──
+  let lvl, color;
+  if      (score === 0)          { lvl = 0; color = '#1f7a50'; }
+  else if (score === 1)          { lvl = 1; color = '#2ecc71'; }
+  else if (score <= 3)           { lvl = 2; color = '#e67e22'; }
+  else if (score <= 6)           { lvl = 3; color = '#b83232'; }
+  else                           { lvl = 4; color = '#7b0000'; }
+
+  const annualRisk = (af === '1') ? ANNUAL_RISK[score] + '%' : '—';
+
+  // ── Radar data ──
+  const sbpScore  = !isNaN(sbp)  ? (sbp >= 140 ? 3 : sbp >= 130 ? 2 : 1) : 0;
+  const ageScore  = !isNaN(age)  ? (age >= 75 ? 3 : age >= 65 ? 2 : age >= 50 ? 1 : 0) : 0;
+  const bmiScore  = !isNaN(bmi)  ? (bmi >= 30 ? 3 : bmi >= 25 ? 2 : 1) : 0;
+  const smkScore  = smoking * 1.5;
+  const actScore  = activity === 0 ? 3 : activity === 1 ? 2 : 1;
+  const glcScore  = !isNaN(glucose) ? (glucose >= 7.0 ? 3 : glucose >= 5.6 ? 2 : 1) : 0;
+  const radarData = [sbpScore, ageScore, bmiScore, smkScore, actScore, glcScore];
+
+  // ── Recommendations ──
+  const recoKeys = [];
+  if (!isNaN(sbp) && sbp >= 140) recoKeys.push({ icon:'💊', key:'hbp' });
+  if (smoking === 2) recoKeys.push({ icon:'🚭', key:'smkCurr' });
+  if (smoking === 1) recoKeys.push({ icon:'✅', key:'smkEx' });
+  if (activity === 0) recoKeys.push({ icon:'🏃', key:'inact' });
+  if (!isNaN(bmi) && bmi >= 25) recoKeys.push({ icon:'⚖️', key:'bmi' });
+  if (dm === '1') recoKeys.push({ icon:'🩸', key:'dm' });
+  if (alcohol === 1) recoKeys.push({ icon:'🍷', key:'alc' });
+  if (af === '1') recoKeys.push({ icon:'❤️', key:'af' });
+  if (!isNaN(cholVal) && cholVal >= 5.2) recoKeys.push({ icon:'🔬', key:'chol' });
+  if (recoKeys.length === 0) recoKeys.push({ icon:'🌟', key:'ok' });
+
+  // Store for PDF re-use
+  window._lastResult = { score, lvl, color, breakdown, extras, radarData, recoKeys, annualRisk };
+
+  renderResult(window._lastResult);
+}
+
+/* ──────────────────────────────────────
+   RENDER
+────────────────────────────────────── */
+function renderResult(r) {
+  const { score, lvl, color, breakdown, extras, radarData, recoKeys, annualRisk } = r;
+  const L = LANGS[currentLang];
+
+  // Gauge score
+  document.getElementById('gauge-score').textContent = score;
+  document.getElementById('gauge-score').className = ['c-green','c-green','c-amber','c-red','c-darkred'][lvl];
+
+  // Labels
+  document.getElementById('risk-label').textContent = L.risks[lvl];
+  document.getElementById('risk-label').className = 'risk-label-big ' + ['c-green','c-green','c-amber','c-red','c-darkred'][lvl];
+  document.getElementById('risk-desc').textContent = L.riskDescs[lvl];
+  document.getElementById('annual-val').textContent = annualRisk;
+
+  // Donut chart
+  rebuildCharts(r);
+
+  // Breakdown
+  document.getElementById('bk-grid').innerHTML = breakdown.map(b => `
+    <div class="bk-item">
+      <span class="bk-name">${b.label}</span>
+      <span class="bk-val v${Math.min(b.pts,2)}">${b.pts > 0 ? '+'+b.pts : '0'}</span>
+    </div>`).join('');
+
+  document.getElementById('extra-grid').innerHTML = extras.map(e => `
+    <div class="bk-item">
+      <span class="bk-name">${e.label}</span>
+      <span class="bk-val v${Math.min(e.pts,2)}">${e.pts===0?'✓':e.pts===1?'⚠':'⚠⚠'}</span>
+    </div>`).join('');
+
+  // Recos
+  document.getElementById('reco-list').innerHTML = recoKeys.map((r,i) => `
+    <div class="reco-item" style="animation-delay:${i*0.06}s">
+      <span class="ri-icon">${r.icon}</span>
+      <span>${LANGS[currentLang].recos[r.key]}</span>
+    </div>`).join('');
+
+  // Show
+  const panel = document.getElementById('result-panel');
+  panel.classList.add('visible');
+  setTimeout(() => panel.scrollIntoView({ behavior:'smooth', block:'start' }), 60);
+}
+
+/* ──────────────────────────────────────
+   CHARTS
+────────────────────────────────────── */
+function getChartColors() {
+  const dark = isDark();
+  return {
+    grid:   dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)',
+    tick:   dark ? '#706660' : '#9b918a',
+    area:   dark ? 'rgba(184,50,50,0.15)'  : 'rgba(184,50,50,0.1)'
+  };
+}
+
+function rebuildCharts(r) {
+  const { score, color, radarData } = r;
+  const L = LANGS[currentLang];
+  const CC = getChartColors();
+  const dark = isDark();
+
+  // ── Donut ──
+  if (donutInstance) { donutInstance.destroy(); donutInstance = null; }
+  const dc = document.getElementById('donutChart');
+  donutInstance = new Chart(dc, {
+    type: 'doughnut',
+    data: {
+      datasets: [{
+        data: [score, 9 - score],
+        backgroundColor: [color, dark ? '#2a2622' : '#e8e4df'],
+        borderWidth: 0,
+        hoverOffset: 0
+      }]
+    },
+    options: {
+      cutout: '72%',
+      animation: { duration: 800, easing: 'easeOutQuart' },
+      plugins: { legend: { display: false }, tooltip: { enabled: false } }
+    }
+  });
+
+  // ── Bar ──
+  if (barInstance) { barInstance.destroy(); barInstance = null; }
+  const bc = document.getElementById('barChart');
+  barInstance = new Chart(bc, {
+    type: 'bar',
+    data: {
+      labels: L.chartLabels,
+      datasets: [{
+        data: [score, 1, 7],
+        backgroundColor: [color, '#1f7a50', '#b83232'],
+        borderRadius: 6,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: CC.grid }, ticks: { color: CC.tick, font: { family:'JetBrains Mono', size:11 } } },
+        y: { min:0, max:9, grid: { color: CC.grid }, ticks: { color: CC.tick, font: { family:'JetBrains Mono', size:11 } } }
+      }
+    }
+  });
+
+  // ── Radar ──
+  if (radarInstance) { radarInstance.destroy(); radarInstance = null; }
+  const rc = document.getElementById('radarChart');
+  radarInstance = new Chart(rc, {
+    type: 'radar',
+    data: {
+      labels: L.radarLabels,
+      datasets: [{
+        label: 'Profil',
+        data: radarData,
+        backgroundColor: CC.area,
+        borderColor: color,
+        borderWidth: 2,
+        pointBackgroundColor: color,
+        pointRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        r: {
+          min: 0, max: 3,
+          grid: { color: CC.grid },
+          angleLines: { color: CC.grid },
+          ticks: { display: false },
+          pointLabels: { color: CC.tick, font: { family:'Outfit', size:11 } }
+        }
+      }
+    }
+  });
+}
+
+/* ──────────────────────────────────────
+   PDF EXPORT
+────────────────────────────────────── */
+function exportPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+  const L = LANGS[currentLang];
+  const r = window._lastResult;
+  if (!r) return;
+  const isRTL = (currentLang === 'ar');
+
+  const W = 210, M = 18;
+  let y = M;
+
+  // Header band
+  doc.setFillColor(28, 23, 20);
+  doc.rect(0, 0, W, 28, 'F');
+  doc.setTextColor(240, 235, 228);
+  doc.setFontSize(18);
+  doc.setFont('helvetica','bold');
+  const title = currentLang === 'ar' ? 'تقييم خطر السكتة الدماغية' :
+                currentLang === 'en' ? 'Stroke Risk Assessment' :
+                currentLang === 'es' ? 'Evaluación del Riesgo de ACV' :
+                'Évaluation du Risque d\'AVC';
+  doc.text(title, W/2, 17, { align:'center' });
+  doc.setFontSize(9);
+  doc.setFont('helvetica','normal');
+  doc.text('CHA₂DS₂-VASc · ' + new Date().toLocaleDateString(), W/2, 23, { align:'center' });
+
+  y = 38;
+
+  // Score box
+  const lvlColor = [[31,122,80],[31,122,80],[230,127,34],[184,50,50],[123,0,0]][r.lvl];
+  doc.setFillColor(...lvlColor);
+  doc.roundedRect(M, y, W - 2*M, 22, 4, 4, 'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(14); doc.setFont('helvetica','bold');
+  doc.text(`Score: ${r.score}/9 — ${L.risks[r.lvl]}`, W/2, y+9, { align:'center' });
+  doc.setFontSize(9); doc.setFont('helvetica','normal');
+  doc.text(L.annualRisk + ' ' + r.annualRisk, W/2, y+16, { align:'center' });
+
+  y += 30;
+  doc.setTextColor(28,23,20);
+
+  // Description
+  doc.setFontSize(10); doc.setFont('helvetica','normal');
+  const descLines = doc.splitTextToSize(L.riskDescs[r.lvl], W - 2*M);
+  doc.text(descLines, M, y);
+  y += descLines.length * 5 + 6;
+
+  // Breakdown
+  doc.setFontSize(11); doc.setFont('helvetica','bold');
+  doc.text('CHA₂DS₂-VASc', M, y); y += 6;
+  doc.setDrawColor(220,215,208); doc.line(M, y, W-M, y); y += 4;
+
+  r.breakdown.forEach(b => {
+    doc.setFontSize(9); doc.setFont('helvetica','normal');
+    doc.setTextColor(28,23,20);
+    doc.text(b.label, M, y);
+    const valColor = b.pts === 0 ? [31,122,80] : b.pts === 1 ? [184,106,0] : [184,50,50];
+    doc.setTextColor(...valColor);
+    doc.setFont('helvetica','bold');
+    doc.text((b.pts > 0 ? '+' : '') + b.pts, W-M, y, { align:'right' });
+    y += 5.5;
+  });
+
+  y += 4;
+
+  // Recommendations
+  doc.setTextColor(28,23,20);
+  doc.setFontSize(11); doc.setFont('helvetica','bold');
+  doc.text(L.recoTitle, M, y); y += 6;
+  doc.setDrawColor(220,215,208); doc.line(M, y, W-M, y); y += 4;
+
+  r.recoKeys.forEach(rk => {
+    doc.setFontSize(9); doc.setFont('helvetica','normal');
+    doc.setTextColor(90,82,76);
+    const lines = doc.splitTextToSize('• ' + L.recos[rk.key], W - 2*M - 4);
+    doc.text(lines, M+2, y);
+    y += lines.length * 5 + 2;
+    if (y > 270) { doc.addPage(); y = 20; }
+  });
+
+  y += 6;
+
+  // Disclaimer
+  doc.setFontSize(8); doc.setTextColor(155,145,138);
+  doc.setFont('helvetica','italic');
+  const disc = currentLang === 'ar'
+    ? 'هذه الأداة لأغراض تعليمية فقط ولا تحل محل المشورة الطبية المتخصصة.'
+    : currentLang === 'en' ? 'For educational use only. Does not replace professional medical advice.'
+    : currentLang === 'es' ? 'Solo para uso educativo. No reemplaza el consejo médico profesional.'
+    : 'Outil à visée éducative. Ne remplace pas un avis médical professionnel.';
+  doc.text(doc.splitTextToSize(disc, W - 2*M), M, y);
+
+  doc.save(`stroke-risk-${currentLang}-score${r.score}.pdf`);
+}
+
+/* ──────────────────────────────────────
+   RESET
+────────────────────────────────────── */
+function resetForm() {
+  document.querySelectorAll('input[type="number"]').forEach(i => i.value = '');
+  document.querySelectorAll('input[type="radio"]').forEach(i => i.checked = false);
+  ['smoking','alcohol','activity'].forEach(id => document.getElementById(id).value = '0');
+  const panel = document.getElementById('result-panel');
+  panel.classList.remove('visible');
+  panel.style.display = '';
+  window._lastResult = null;
+  window.scrollTo({ top:0, behavior:'smooth' });
+}
+
+// Init
+setLang('fr');
+</script>
+</body>
+</html>
